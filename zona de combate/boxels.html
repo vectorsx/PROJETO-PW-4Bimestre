@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<title>Boxels</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0f1113;
+    --panel:#22262a;
+    --accent:#ffd166;
+    --hp-green1:#7CFC00;
+    --hp-green2:#32CD32;
+    --red:#ff4d4f;
+    --blue:#4ea3ff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg, #050607 0%, var(--bg) 100%);
+    color:#e9eef6;
+    display:flex;
+    min-height:100vh;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+
+  .game {
+    width:900px;
+    max-width:96vw;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.04);
+    border-radius:12px;
+    padding:18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+
+  header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  h1{margin:0;font-size:20px;letter-spacing:0.6px}
+  .subtitle{font-size:12px;color:#9fb0c8}
+
+  /* ARENA */
+  #arenaWrap{display:flex;gap:18px;margin-top:14px;align-items:flex-end}
+  #arena{
+    flex:1;
+    height:320px;
+    background:linear-gradient(180deg,#2b2f33 0%, #222426 100%);
+    border-radius:8px;
+    border:2px solid rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    padding: 18px 32px;
+  }
+
+  /* fighters */
+  .fighter {
+    width:160px;
+    height:160px;
+    background-size:contain;
+    background-repeat:no-repeat;
+    background-position:center bottom;
+    transition: transform 140ms ease, filter 120ms linear;
+    will-change: transform;
+    display:block;
+    margin-bottom:6px;
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.7));
+  }
+
+  .player { transform-origin: center bottom; }
+  .cpu { transform-origin: center bottom; }
+
+  .move-forward { transform: translateY(-8px) translateX(10px) scale(1.02); }
+  .move-forward-cpu { transform: translateY(-8px) translateX(-10px) scale(1.02); }
+  .hit { filter:brightness(2) saturate(1.2); }
+
+  /* HUD columns */
+  .hud{
+    width:280px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    align-items:stretch;
+  }
+
+  .panel{
+    background:var(--panel);
+    padding:10px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  .barRow{display:flex;gap:6px;align-items:center;justify-content:space-between}
+  .label{font-size:13px;color:#bcd3e8}
+  .hp-bar{height:16px;background:#2e3438;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03);width:100%}
+  .hp-fill{height:100%;width:100%;background:linear-gradient(90deg,var(--hp-green1),var(--hp-green2));transition:width 220ms linear}
+
+  .stamina{height:10px;background:#15181a;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,0.03)}
+  .st-fill{height:100%;width:100%;background:linear-gradient(90deg,#7aa7ff,#3b83ff);transition:width 200ms linear}
+
+  .ko-box{display:flex;gap:10px;align-items:center;font-weight:600}
+  .ko-num{background:rgba(255,255,255,0.03);padding:6px 10px;border-radius:8px}
+
+  /* Controls */
+  .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+  button.btn{
+    background:#0f1720;color:#eaf2ff;border-radius:8px;padding:10px 16px;border:1px solid rgba(255,255,255,0.03);
+    cursor:pointer;font-weight:700;letter-spacing:0.6px;
+    transition: transform 80ms ease, opacity 120ms;
+  }
+  button.btn:active{transform:translateY(2px)}
+  .btn-secondary{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#cfe6ff}
+
+  /* timing meter (skill element) */
+  .meter {
+    width:100%;
+    height:16px;
+    background:#101314;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.03);
+    position:relative;
+    margin-top:12px;
+  }
+  .meter .cursor{
+    position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent);
+    box-shadow:0 0 10px rgba(255,209,102,0.6);
+    transform:translateX(0);
+  }
+  .meter .zone{
+    position:absolute;top:0;bottom:0;border-radius:4px;background:rgba(125,210,120,0.14);
+    left:42%; width:16%;
+    box-shadow:inset 0 0 12px rgba(0,0,0,0.4);
+  }
+
+  /* arena shake */
+  @keyframes shake {
+    0%{transform:translateX(0)}
+    20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)}
+    60%{transform:translateX(-4px)}
+    80%{transform:translateX(4px)}
+    100%{transform:translateX(0)}
+  }
+  .shake{animation:shake 300ms linear}
+
+  /* footer hints */
+  .hints{font-size:12px;color:#9fb0c8;margin-top:10px;text-align:center}
+  @media(max-width:720px){
+    .game{padding:12px}
+    #arena{padding:12px;height:260px}
+    .fighter{width:120px;height:120px}
+  }
+  
+</style>
+</head>
+<body>
+<div class="game" role="application">
+  <header>
+    <div>
+      <h1>Boxels</h1>
+      <div class="subtitle">Aperte <strong>Atacar</strong> com bom timing pra causar mais dano. Gerencie sua stamina.</div>
+    </div>
+    <div style="text-align:right">
+      <div class="subtitle">Melhor de: <strong id="bestOfLabel">Sem limite</strong></div>
+      <div style="font-size:12px;color:#9fb0c8">Créditos: sprites locais</div>
+    </div>
+  </header>
+
+  <div id="arenaWrap">
+    <div id="arena" class="panel">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;">
+        <!-- player area is left inside arena for visuals -->
+        <div id="playerWrap" style="display:flex;align-items:flex-end;flex-direction:column;">
+          <div id="player" class="fighter player" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        <div id="cpuWrap" style="display:flex;align-items:flex-end;flex-direction:column;">
+          <div id="cpu" class="fighter cpu" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="hud">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;flex-direction:column">
+            <div class="label">Player</div>
+            <div style="font-weight:700">Você</div>
+          </div>
+          <div class="ko-box"><div class="label">Nocautes</div><div class="ko-num" id="player-ko">0</div></div>
+        </div>
+        <div class="barRow">
+          <div class="label">Vida</div>
+          <div style="flex:1;margin-left:8px">
+            <div class="hp-bar"><div id="player-hp" class="hp-fill"></div></div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="barRow">
+          <div class="label">Stamina</div>
+          <div style="flex:1;margin-left:8px">
+            <div class="stamina"><div id="player-st" class="st-fill"></div></div>
+          </div>
+        </div>
+
+        <div class="meter" title="Timing meter — acerte na zona verde para golpes fortes">
+          <div class="zone" aria-hidden="true"></div>
+          <div class="cursor" id="meterCursor" aria-hidden="true"></div>
+        </div>
+        <div style="font-size:12px;color:#9fb0c8;margin-top:8px">Pressione <strong>Atacar</strong> quando o cursor estiver na zona verde para um golpe forte.</div>
+      </div>
+
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;flex-direction:column">
+            <div class="label">CPU</div>
+            <div style="font-weight:700">Desafiador</div>
+          </div>
+          <div class="ko-box"><div class="label">Nocautes</div><div class="ko-num" id="cpu-ko">0</div></div>
+        </div>
+
+        <div class="barRow">
+          <div class="label">Vida</div>
+          <div style="flex:1;margin-left:8px">
+            <div class="hp-bar"><div id="cpu-hp" class="hp-fill" style="background:linear-gradient(90deg,#ff7b7b,#ff4d4f)"></div></div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div style="font-size:12px;color:#9fb0c8">Dica: use <strong>Esquivar</strong> pouco antes do ataque da CPU para evitá-lo.</div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="attackBtn">Atacar</button>
+    <button class="btn" id="dodgeBtn">Esquivar</button>
+    <button class="btn btn-secondary" id="startBtn">Iniciar</button>
+    <button class="btn btn-secondary" id="pauseBtn">Pausar</button>
+    <button class="btn btn-secondary" id="stopBtn">Parar</button>
+  </div>
+
+  <div class="hints">Gameplay: timing + stamina + leitura do adversário. Boa sorte!</div>
+</div>
+
+<script>
+/* ==== CONFIG ==== */
+const IMG_PATH = './images/';
+const SPRITES = {
+  player: { idle: 'padraoesquerdo.png', attack: 'socoazul.png', dodge: 'esquivaazul.png' },
+  cpu:    { idle: 'padraovermelho.png', attack: 'socovermelho.png', dodge: 'esquivavermelha.png' }
+};
+
+const MAX_HP = 100;
+const MAX_ST = 100;
+const ATTACK_COST = 20;   // stamina cost
+const DODGE_COST = 15;
+const ST_REGEN = 12;      // per second
+const COOLDOWN_MS = 650;  // input cooldown
+const TIMING_STRONG_BONUS = 12; // extra damage if timing perfect
+const BASE_DAMAGE = 10;
+
+/* ==== STATE ==== */
+let playerHP = MAX_HP, cpuHP = MAX_HP;
+let playerKO = 0, cpuKO = 0;
+let playerST = MAX_ST;
+let gameStarted = false, paused = false;
+let playerLocked = false; // cooldown between actions
+let cpuState = { cooldown:false, nextAttackAt:0, attacking:false, attackWindowEnd:0 };
+
+/* elements */
+const playerEl = document.getElementById('player');
+const cpuEl = document.getElementById('cpu');
+const pHpEl = document.getElementById('player-hp');
+const cHpEl = document.getElementById('cpu-hp');
+const pKoEl = document.getElementById('player-ko');
+const cKoEl = document.getElementById('cpu-ko');
+const pStEl = document.getElementById('player-st');
+const meterCursor = document.getElementById('meterCursor');
+const attackBtn = document.getElementById('attackBtn');
+const dodgeBtn = document.getElementById('dodgeBtn');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const stopBtn = document.getElementById('stopBtn');
+const arena = document.getElementById('arena');
+
+/* setup sprites */
+function setSprite(char, action){
+  const el = char==='player' ? playerEl : cpuEl;
+  el.style.backgroundImage = `url(${IMG_PATH + SPRITES[char][action]})`;
+}
+
+/* update HUD */
+function updateHUD(){
+  pHpEl.style.width = Math.max(0, playerHP) + '%';
+  cHpEl.style.width = Math.max(0, cpuHP) + '%';
+  pStEl.style.width = Math.max(0, playerST) + '%';
+  pKoEl.textContent = playerKO;
+  cKoEl.textContent = cpuKO;
+}
+
+/* ==== TIMING METER (skill) ==== */
+let meter = { pos:0, dir:1, speed: 0.8 }; // pos 0..1
+let meterRunning = true;
+function meterTick(dt){
+  if(!meterRunning) return;
+  meter.pos += meter.dir * meter.speed * dt;
+  if(meter.pos >= 1){ meter.pos = 1; meter.dir = -1; }
+  if(meter.pos <= 0){ meter.pos = 0; meter.dir = 1; }
+  meterCursor.style.transform = `translateX(${meter.pos * 100}%)`;
+}
+
+/* check if cursor inside green zone (42%..58%) */
+function timingIsStrong(){
+  return meter.pos >= 0.42 && meter.pos <= 0.58;
+}
+
+/* flash effect */
+function flash(el){
+  el.classList.add('hit');
+  setTimeout(()=>el.classList.remove('hit'),120);
+}
+
+/* small movement animation */
+function doStrikeAnim(who){
+  const el = (who==='player')?playerEl:cpuEl;
+  el.classList.add(who==='player'?'move-forward':'move-forward-cpu');
+  setTimeout(()=>el.classList.remove(who==='player'?'move-forward':'move-forward-cpu'),200);
+}
+
+/* shake arena on hit */
+function shakeArena(){
+  arena.classList.add('shake');
+  setTimeout(()=>arena.classList.remove('shake'),300);
+}
+
+/* ==== CPU behavior ==== */
+/* CPU schedules attacks with small randomness, can attempt to anticipate player's attack.
+   When cpuState.attacking === true, there is a short window where cpu attack will land (unless dodged) */
+function cpuScheduleNext(){
+  const now = performance.now();
+  // schedule next attack between 700ms and 1600ms
+  cpuState.nextAttackAt = now + 700 + Math.random()*900;
+  cpuState.attacking = false;
+}
+
+function cpuUpdate(now){
+  if(!gameStarted || paused) return;
+  if(now >= cpuState.nextAttackAt && !cpuState.attacking){
+    // start attack wind-up
+    cpuState.attacking = true;
+    setSprite('cpu','attack');
+    doStrikeAnim('cpu');
+    // attack lands after windup
+    cpuState.attackWindowEnd = now + 300; // player can dodge until this
+    // after attack decide next schedule
+    setTimeout(()=>{ // apply the effect slightly delayed to sync visuals
+      if(cpuState.attacking){ // if not dodged
+        cpuPerformAttack();
+      }
+      setSprite('cpu','idle');
+    }, 300);
+  }
+}
+
+/* CPU attack resolves here */
+function cpuPerformAttack(){
+  if(!gameStarted) return;
+  // if player recently dodged successfully, we'll avoid dealing damage
+  if(playerJustDodged && playerJustDodged > performance.now()-700){
+    // dodged - no damage
+    return;
+  }
+  // CPU has a base precision influenced by random
+  const precision = Math.random(); // 0..1
+  if(precision < 0.18){
+    // miss
+    return;
+  }
+  // else hit
+  const damage = BASE_DAMAGE;
+  playerHP = Math.max(0, playerHP - damage);
+  flash(playerEl);
+  shakeArena();
+  updateHUD();
+  checkKO();
+  cpuState.attacking = false;
+  cpuScheduleNext();
+}
+
+/* allow CPU to try predict player's attack: if it detects player recently attacked or is likely to attack,
+   it will sometimes dodge instead of attacking. We model that in cpuDecide() used in player's action flow. */
+function cpuDecideReactive(playerAction){
+  // if playerAction === 'attack', cpu has chance to dodge preemptively
+  if(playerAction === 'attack' && Math.random() < 0.45){
+    // do dodge animation and avoid next hit
+    setSprite('cpu','dodge');
+    // short dodge window
+    cpuState.attacking = false;
+    setTimeout(()=>setSprite('cpu','idle'), 280);
+    // schedule next attack later
+    cpuState.nextAttackAt = performance.now() + 900 + Math.random()*700;
+    return 'dodge';
+  }
+  return 'attack';
+}
+
+/* ==== PLAYER ACTIONS & STATE ==== */
+let playerJustDodged = 0; // timestamp when player dodged successfully
+
+function canUseStamina(cost){
+  return playerST >= cost;
+}
+
+function spendStamina(cost){
+  playerST = Math.max(0, playerST - cost);
+  updateHUD();
+}
+
+/* Player Attack: uses timing meter and stamina, deals stronger damage on timing */
+function playerAttack(){
+  if(!gameStarted || paused || playerLocked) return;
+  if(!canUseStamina(ATTACK_COST)) return; // requires stamina
+  playerLocked = true;
+  setTimeout(()=>playerLocked=false, COOLDOWN_MS);
+
+  // CPU may react instantly (predictive)
+  const cpuReaction = cpuDecideReactive('attack');
+
+  // use stamina
+  spendStamina(ATTACK_COST);
+
+  // attack visuals
+  setSprite('player','attack');
+  doStrikeAnim('player');
+
+  const strong = timingIsStrong();
+  const damage = BASE_DAMAGE + (strong ? TIMING_STRONG_BONUS : 0); // 10 or 22
+
+  // If CPU dodged (because reacted), no damage. Otherwise CPU may be attacking simultaneously (mutual hits).
+  if(cpuReaction === 'dodge'){
+    // cpu dodged and avoids
+    // small visual
+    flash(cpuEl); // quick flash to indicate dodge attempt
+  } else {
+    // check if CPU is currently attacking (mutual hits possible)
+    if(cpuState.attacking && performance.now() <= cpuState.attackWindowEnd){
+      // both hit: both take damage (but player's timing matters)
+      cpuHP = Math.max(0, cpuHP - damage);
+      // cpu attack resolves normally (cpuPerformAttack will also do player damage)
+      flash(cpuEl);
+      shakeArena();
+    } else {
+      // cpu not attacking: apply damage to cpu
+      cpuHP = Math.max(0, cpuHP - damage);
+      flash(cpuEl);
+    }
+  }
+
+  updateHUD();
+  checkKO();
+
+  // after short time return to idle
+  setTimeout(()=>setSprite('player','idle'), 320);
+}
+
+/* Player Dodge: spend stamina, create a dodge window to avoid CPU attack */
+function playerDodge(){
+  if(!gameStarted || paused || playerLocked) return;
+  if(!canUseStamina(DODGE_COST)) return;
+  playerLocked = true;
+  setTimeout(()=>playerLocked=false, COOLDOWN_MS);
+  spendStamina(DODGE_COST);
+  setSprite('player','dodge');
+  // mark dodge timestamp to allow CPU attacks to be avoided
+  playerJustDodged = performance.now();
+  doStrikeAnim('player');
+  setTimeout(()=>setSprite('player','idle'), 320);
+}
+
+/* ==== RESET / KO ==== */
+function checkKO(){
+  if(playerHP <= 0){
+    cpuKO++;
+    cKoEl.textContent = cpuKO;
+    endRound('cpu');
+  } else if(cpuHP <= 0){
+    playerKO++;
+    pKoEl.textContent = playerKO;
+    endRound('player');
+  }
+}
+
+function endRound(winner){
+  // brief celebration / effect
+  if(winner === 'player') {
+    // small flash on cpu
+    cpuEl.classList.add('hit');
+    setTimeout(()=>cpuEl.classList.remove('hit'),400);
+  } else {
+    playerEl.classList.add('hit');
+    setTimeout(()=>playerEl.classList.remove('hit'),400);
+  }
+
+  // pause a moment then reset
+  setTimeout(()=>resetRound(), 700);
+}
+
+function resetRound(){
+  playerHP = MAX_HP;
+  cpuHP = MAX_HP;
+  playerST = MAX_ST;
+  updateHUD();
+  setSprite('player','idle');
+  setSprite('cpu','idle');
+  cpuScheduleNext();
+}
+
+/* ==== stamina regen tick ==== */
+let lastTick = performance.now();
+function gameLoop(now){
+  const dt = (now - lastTick)/1000; // seconds
+  lastTick = now;
+  if(gameStarted && !paused){
+    // meter movement is frame-rate independent
+    meterTick(dt);
+
+    // stamina regen
+    if(playerST < MAX_ST){
+      playerST = Math.min(MAX_ST, playerST + ST_REGEN * dt);
+      updateHUD();
+    }
+
+    // CPU updates
+    cpuUpdate(now);
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+/* ==== UI bindings ==== */
+attackBtn.addEventListener('click', playerAttack);
+dodgeBtn.addEventListener('click', playerDodge);
+
+startBtn.addEventListener('click', ()=>{
+  gameStarted = true; paused = false;
+  playerHP = cpuHP = MAX_HP;
+  playerST = MAX_ST;
+  playerKO = cpuKO = 0;
+  updateHUD();
+  setSprite('player','idle');
+  setSprite('cpu','idle');
+  cpuScheduleNext();
+});
+
+pauseBtn.addEventListener('click', ()=>{
+  if(!gameStarted) return;
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Retomar' : 'Pausar';
+});
+
+stopBtn.addEventListener('click', ()=>{
+  gameStarted = false; paused = false;
+  playerHP = cpuHP = MAX_HP;
+  playerST = MAX_ST;
+  playerKO = cpuKO = 0;
+  updateHUD();
+  setSprite('player','idle'); setSprite('cpu','idle');
+});
+
+/* keyboard shortcuts */
+window.addEventListener('keydown', (e)=>{
+  if(!gameStarted) return;
+  if(e.code === 'KeyA') playerAttack(); // A = attack
+  if(e.code === 'KeyS') playerDodge();  // S = dodge
+  if(e.code === 'Space') { // space to start if not started
+    if(!gameStarted) startBtn.click();
+  }
+});
+
+/* initialize visuals */
+setSprite('player','idle');
+setSprite('cpu','idle');
+updateHUD();
+lastTick = performance.now();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
